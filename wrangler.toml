@@ -1,0 +1,7 @@
+# Cloudflare Workers で Vite の静的ビルド(dist)を配信する設定。
+# `npm run build` で dist を生成 → `npx wrangler deploy` でアセットとして公開する。
+name = "game-splatoon"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./dist"
