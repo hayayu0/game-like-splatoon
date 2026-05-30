@@ -1,0 +1,232 @@
+:root {
+  --team0: #ff7a1a;
+  --team1: #2a7bff;
+  --ink-bg: rgba(10, 12, 18, 0.92);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #10131a;
+  font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+  color: #fff;
+  user-select: none;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#timer {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+#turf-wrap {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(620px, 70vw);
+}
+
+#turf-bar {
+  position: relative;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.turf-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  transition: width 0.2s linear;
+}
+
+#turf0 {
+  left: 0;
+  background: var(--team0);
+  border-radius: 11px 0 0 11px;
+}
+
+#turf1 {
+  right: 0;
+  background: var(--team1);
+  border-radius: 0 11px 11px 0;
+}
+
+#turf-text {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 18px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.pct.p0 {
+  color: var(--team0);
+}
+.pct.p1 {
+  color: var(--team1);
+}
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+#crosshair::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#ink-tank {
+  position: absolute;
+  left: 28px;
+  bottom: 28px;
+  width: 26px;
+  height: 180px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+}
+
+#ink-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #ffb060, var(--team0));
+  transition: height 0.08s linear;
+}
+
+/* ---------- オーバーレイ ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  background: var(--ink-bg);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay h1 {
+  font-size: 56px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+
+.accent {
+  color: var(--team0);
+}
+
+.lead {
+  font-size: 20px;
+  opacity: 0.9;
+}
+
+.controls {
+  list-style: none;
+  text-align: left;
+  line-height: 1.9;
+  font-size: 16px;
+  opacity: 0.92;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 16px 24px;
+  border-radius: 12px;
+}
+
+.controls b {
+  display: inline-block;
+  min-width: 130px;
+  color: var(--team0);
+}
+
+button {
+  margin-top: 8px;
+  padding: 14px 36px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #10131a;
+  background: var(--team0);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 6px 0 #b85510;
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+  pointer-events: auto;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+button:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #b85510;
+}
+
+.hint {
+  font-size: 13px;
+  opacity: 0.6;
+  margin-top: 4px;
+}
+
+#end-detail {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.8;
+}

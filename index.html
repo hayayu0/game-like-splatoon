@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>イカすナワバリバトル</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game"></canvas>
+
+      <!-- ゲーム中の HUD -->
+      <div id="hud">
+        <div id="timer">1:30</div>
+
+        <div id="turf-wrap">
+          <div id="turf-bar">
+            <div id="turf0" class="turf-fill"></div>
+            <div id="turf1" class="turf-fill"></div>
+          </div>
+          <div id="turf-text">
+            <span id="pct0" class="pct p0">0%</span>
+            <span id="pct1" class="pct p1">0%</span>
+          </div>
+        </div>
+
+        <div id="crosshair"></div>
+
+        <div id="ink-tank"><div id="ink-fill"></div></div>
+      </div>
+
+      <!-- 開始オーバーレイ -->
+      <div id="start-overlay" class="overlay">
+        <h1>イカす<span class="accent">ナワバリ</span>バトル</h1>
+        <p class="lead">90秒間でフィールドをキミの色に塗りつくせ！</p>
+        <ul class="controls">
+          <li><b>WASD</b> 移動</li>
+          <li><b>マウス</b> 視点</li>
+          <li><b>左クリック</b> インクを撃つ</li>
+          <li><b>右クリック / Shift</b> イカ潜伏（自分のインクの上で高速移動＋インク回復）</li>
+          <li><b>Space</b> ジャンプ</li>
+        </ul>
+        <button id="start-btn">クリックして開始</button>
+        <p class="hint">※ マウスポインタがロックされます。Escで解除、画面クリックで再ロック。</p>
+      </div>
+
+      <!-- 結果オーバーレイ -->
+      <div id="end-overlay" class="overlay hidden">
+        <h1 id="result">ゲーム終了</h1>
+        <p id="end-detail"></p>
+        <button id="restart-btn">もう一度プレイ</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
