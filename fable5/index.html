@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPLA RUSH!! - スプラ・ラッシュ | イカ vs タコ 3分間ペイントバトル</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23ff8c1a'/%3E%3C/svg%3E" />
+</head>
+<body>
+<div id="app">
+  <canvas id="gl"></canvas>
+
+  <!-- ===== HUD ===== -->
+  <div id="hud" class="screen hidden">
+    <div id="topbar">
+      <div id="coverPctL" class="cover-pct">0.0%</div>
+      <div id="timerWrap">
+        <div id="timer">3:00</div>
+        <div id="coverBar">
+          <div id="coverL"></div>
+          <div id="coverR"></div>
+        </div>
+      </div>
+      <div id="coverPctR" class="cover-pct">0.0%</div>
+    </div>
+
+    <div id="crosshair">
+      <svg viewBox="0 0 120 120">
+        <circle class="ch-bg" cx="60" cy="60" r="26" />
+        <circle id="hpRing" cx="60" cy="60" r="26" />
+        <circle id="chSpread" cx="60" cy="60" r="14" />
+        <circle class="ch-dot" cx="60" cy="60" r="2.6" />
+      </svg>
+      <div id="hitmarker"></div>
+    </div>
+
+    <div id="inkMeter">
+      <svg viewBox="0 0 100 130">
+        <defs>
+          <clipPath id="tankClip"><path d="M50 6 C66 30 88 52 88 82 a38 38 0 1 1 -76 0 C12 52 34 30 50 6 Z"/></clipPath>
+        </defs>
+        <path class="tank-outline" d="M50 6 C66 30 88 52 88 82 a38 38 0 1 1 -76 0 C12 52 34 30 50 6 Z"/>
+        <rect id="inkFill" x="0" y="0" width="100" height="130" clip-path="url(#tankClip)"/>
+      </svg>
+      <div id="inkPct">100</div>
+    </div>
+
+    <div id="killfeed"></div>
+    <div id="centerMsg" class="hidden"></div>
+    <div id="killPop" class="hidden">たおした！</div>
+    <div id="respawnOverlay" class="hidden">
+      <div class="respawn-title">やられた！</div>
+      <div id="respawnCount">3</div>
+    </div>
+    <div id="dmgVignette"></div>
+    <div id="lowInk" class="hidden">インクぎれ！ 自分のインクで回復</div>
+  </div>
+
+  <!-- ===== タイトル ===== -->
+  <div id="title" class="screen">
+    <div class="splat s1"></div><div class="splat s2"></div><div class="splat s3"></div>
+    <div class="splat s4"></div><div class="splat s5"></div>
+    <div id="titleInner">
+      <div id="logoWrap">
+        <div id="logoMain">SPLA<span> </span>RUSH<span id="logoBang">!!</span></div>
+        <div id="logoSub">スプラ・ラッシュ</div>
+        <div id="logoTag">イカ vs タコ ： 3分間ペイントバトル</div>
+      </div>
+      <div id="titleMenu">
+        <button id="btnStart" class="btn btn-big">バトルスタート</button>
+        <button id="btnHowto" class="btn">あそびかた</button>
+      </div>
+      <div id="titleFoot">WASD 移動 / マウス 視点 / 左クリック 射撃 — クリックでポインタをロックします</div>
+    </div>
+  </div>
+
+  <!-- ===== あそびかた ===== -->
+  <div id="howto" class="screen hidden">
+    <div class="panel">
+      <h2>あそびかた</h2>
+      <div class="howto-grid">
+        <div class="kbd">W A S D</div>
+        <div><ruby>移<rt>い</rt>動<rt>どう</rt></ruby></div>
+        <div class="kbd">マウス</div>
+        <div>カメラ / ねらう</div>
+        <div class="kbd"><ruby>左<rt>ひだり</rt></ruby>クリック</div>
+        <div>インク<ruby>発<rt>はっ</rt>射<rt>しゃ</rt></ruby>（<ruby>地<rt>じ</rt>面<rt>めん</rt></ruby>も<ruby>塗<rt>ぬ</rt></ruby>れる）</div>
+        <div class="kbd">Space</div>
+        <div>ジャンプ</div>
+        <div class="kbd">Shift</div>
+        <div><ruby>自<rt>じ</rt>分<rt>ぶん</rt></ruby>のインクの<ruby>中<rt>なか</rt></ruby>を<ruby>高<rt>こう</rt>速<rt>そく</rt></ruby>スイム（インク<ruby>回<rt>かい</rt>復<rt>ふく</rt></ruby>）</div>
+        <div class="kbd">Esc</div>
+        <div>ポーズ</div>
+      </div>
+      <div class="howto-tips">
+        <p>3<ruby>分<rt>ふん</rt>間<rt>かん</rt></ruby>でステージの<ruby>床<rt>ゆか</rt></ruby>を<ruby>塗<rt>ぬ</rt></ruby>り<ruby>合<rt>あ</rt></ruby>い、<ruby>塗<rt>ぬ</rt></ruby>った<ruby>面<rt>めん</rt>積<rt>せき</rt></ruby>が<ruby>広<rt>ひろ</rt></ruby>いチームの<ruby>勝<rt>か</rt></ruby>ち。</p>
+        <p><ruby>自<rt>じ</rt>分<rt>ぶん</rt></ruby>の<ruby>色<rt>いろ</rt></ruby>の<ruby>上<rt>うえ</rt></ruby>では<ruby>速<rt>はや</rt></ruby>く、<ruby>敵<rt>てき</rt></ruby>の<ruby>色<rt>いろ</rt></ruby>の<ruby>上<rt>うえ</rt></ruby>では<ruby>遅<rt>おそ</rt></ruby>くなる。インクは<ruby>撃<rt>う</rt></ruby>つと<ruby>減<rt>へ</rt></ruby>り、<ruby>自<rt>じ</rt>分<rt>ぶん</rt></ruby>のインクでスイムすると<ruby>素<rt>す</rt>早<rt>ばや</rt></ruby>く<ruby>回<rt>かい</rt>復<rt>ふく</rt></ruby>する。</p>
+        <p><ruby>敵<rt>てき</rt></ruby>を<ruby>倒<rt>たお</rt></ruby>すと<ruby>数<rt>すう</rt>秒<rt>びょう</rt>間<rt>かん</rt></ruby>リスポーンさせ、そのすきに<ruby>塗<rt>ぬ</rt></ruby>り<ruby>広<rt>ひろ</rt></ruby>げられる。</p>
+      </div>
+      <button id="btnHowtoBack" class="btn">もどる</button>
+    </div>
+  </div>
+
+  <!-- ===== ポーズ ===== -->
+  <div id="pause" class="screen hidden">
+    <div class="panel">
+      <h2>ポーズ中</h2>
+      <div class="menu-col">
+        <button id="btnResume" class="btn btn-big">つづける</button>
+        <button id="btnPauseHowto" class="btn">あそびかた</button>
+        <button id="btnPauseTitle" class="btn btn-dim">タイトルにもどる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== リザルト ===== -->
+  <div id="result" class="screen hidden">
+    <div class="splat s1"></div><div class="splat s3"></div>
+    <div class="panel panel-wide">
+      <div id="resultStamp">WIN!</div>
+      <div id="resultBars">
+        <div class="rbar-row"><span class="rbar-name ink0">イカチーム</span><div class="rbar"><div id="rbarL"></div></div><span id="rpctL" class="rbar-pct">0%</span></div>
+        <div class="rbar-row"><span class="rbar-name ink1">タコぐんだん</span><div class="rbar"><div id="rbarR"></div></div><span id="rpctR" class="rbar-pct">0%</span></div>
+      </div>
+      <div id="resultStats">
+        <div><span>ぬりポイント</span><b id="statPaint">0</b></div>
+        <div><span>たおした</span><b id="statKill">0</b></div>
+        <div><span>やられた</span><b id="statDeath">0</b></div>
+      </div>
+      <div class="menu-row">
+        <button id="btnRematch" class="btn btn-big">もういっかい！</button>
+        <button id="btnResultTitle" class="btn btn-dim">タイトルへ</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

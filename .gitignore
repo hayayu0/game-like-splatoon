@@ -3,3 +3,8 @@ dist/
 *.local
 *credential*
 .DS_Store
+*.local
+qa/
+work/
+fable5/node_modules/
+fable5/node_modules/dist/
