@@ -7,6 +7,7 @@ import { Player } from './Player';
 import { EnemyAI } from './EnemyAI';
 import { Input } from './Input';
 import { HUD } from './HUD';
+import type { Combatant } from './Combatant';
 
 type State = 'ready' | 'playing' | 'finished';
 
@@ -33,7 +34,13 @@ export class Game {
 
     this.paint = new PaintSystem([TEAMS.player.inkCss, TEAMS.enemy.inkCss]);
     new Arena(scene, this.paint.texture);
-    this.weapon = new Weapon(scene, this.paint, [TEAMS.player.color, TEAMS.enemy.color]);
+    const combatants: Combatant[] = [];
+    this.weapon = new Weapon(
+      scene,
+      this.paint,
+      [TEAMS.player.color, TEAMS.enemy.color],
+      () => combatants,
+    );
 
     this.player = new Player(
       scene,
@@ -50,6 +57,7 @@ export class Game {
       scene,
       this.paint,
       this.weapon,
+      this.player,
       TEAMS.enemy.id,
       TEAMS.enemy.color,
       GAME.enemyCount,
@@ -59,6 +67,7 @@ export class Game {
         new THREE.Vector3(4, 0, 16),
       ],
     );
+    combatants.push(this.player, ...this.enemies.combatants);
 
     // 開始前のカメラ位置（オーバーレイ背景用）
     camera.position.set(0, 10, -26);
@@ -66,6 +75,8 @@ export class Game {
 
     this.hud.setTimer(GAME.duration);
     this.hud.setInk(1);
+    this.hud.setHealth(1);
+    this.hud.setSpecial(0, false);
 
     this.hud.onStart(() => this.start());
     this.hud.onRestart(() => location.reload());
@@ -97,6 +108,10 @@ export class Game {
 
     this.hud.setTimer(this.timeLeft);
     this.hud.setInk(this.player.ink / 100);
+    this.hud.setHealth(this.player.health / this.player.maxHealth);
+    this.hud.setSpecial(this.player.special / 100, this.player.special >= 100);
+    if (this.player.alive) this.hud.hideRespawn();
+    else this.hud.showRespawn(this.player.respawnRemaining);
 
     if (this.timeLeft <= 0) this.finish();
   }
@@ -108,6 +123,7 @@ export class Game {
     const p1 = this.paint.pct1;
     this.hud.setTurf(p0, p1);
     this.hud.setTimer(0);
+    this.hud.hideRespawn();
     if (document.pointerLockElement) document.exitPointerLock();
     this.hud.showEnd(p0, p1);
   }

@@ -144,6 +144,123 @@ body,
   transition: height 0.08s linear;
 }
 
+#health-wrap {
+  position: absolute;
+  left: 72px;
+  bottom: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 900;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+#health-bar {
+  width: 180px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+}
+
+#health-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ff3f4f, #78f06a);
+  transition: width 0.12s ease-out;
+}
+
+#special-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  width: min(360px, 42vw);
+  transform: translateX(-50%);
+  text-align: center;
+  font-weight: 900;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+#special-label {
+  margin-bottom: 3px;
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+
+#special-bar {
+  height: 18px;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+}
+
+#special-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--team0), #fff05a);
+  transition: width 0.12s linear;
+}
+
+#special-ready {
+  margin-top: 5px;
+  color: #fff05a;
+  font-size: 16px;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+#special-ready.visible {
+  opacity: 1;
+  transform: scale(1);
+  animation: ready-pulse 0.75s ease-in-out infinite alternate;
+}
+
+@keyframes ready-pulse {
+  to {
+    text-shadow: 0 0 14px #fff05a, 0 2px 6px rgba(0, 0, 0, 0.8);
+  }
+}
+
+.respawn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 280px;
+  padding: 22px 30px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  border-radius: 18px;
+  background: rgba(10, 12, 18, 0.82);
+  border: 2px solid var(--team1);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+.respawn.hidden {
+  display: none;
+}
+
+.respawn strong {
+  color: var(--team1);
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.respawn span {
+  font-size: 18px;
+  font-weight: 700;
+}
+
 /* ---------- オーバーレイ ---------- */
 .overlay {
   position: fixed;

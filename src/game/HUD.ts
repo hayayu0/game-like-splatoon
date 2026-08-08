@@ -1,4 +1,4 @@
-/** DOM オーバーレイ（タイマー・塗り割合バー・インクタンク・開始/結果画面）の管理 */
+/** DOM オーバーレイ（タイマー・塗り割合・各種ゲージ・開始/結果画面）の管理 */
 export class HUD {
   private timer = document.getElementById('timer')!;
   private turf0 = document.getElementById('turf0')!;
@@ -6,6 +6,11 @@ export class HUD {
   private pct0 = document.getElementById('pct0')!;
   private pct1 = document.getElementById('pct1')!;
   private inkFill = document.getElementById('ink-fill')!;
+  private healthFill = document.getElementById('health-fill')!;
+  private specialFill = document.getElementById('special-fill')!;
+  private specialReady = document.getElementById('special-ready')!;
+  private respawnOverlay = document.getElementById('respawn-overlay')!;
+  private respawnTime = document.getElementById('respawn-time')!;
   private startOverlay = document.getElementById('start-overlay')!;
   private endOverlay = document.getElementById('end-overlay')!;
   private result = document.getElementById('result')!;
@@ -40,6 +45,24 @@ export class HUD {
 
   setInk(frac: number) {
     this.inkFill.style.height = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+  }
+
+  setHealth(frac: number) {
+    this.healthFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+  }
+
+  setSpecial(frac: number, ready: boolean) {
+    this.specialFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+    this.specialReady.classList.toggle('visible', ready);
+  }
+
+  showRespawn(sec: number) {
+    this.respawnTime.textContent = Math.max(1, Math.ceil(sec)).toString();
+    this.respawnOverlay.classList.remove('hidden');
+  }
+
+  hideRespawn() {
+    this.respawnOverlay.classList.add('hidden');
   }
 
   showEnd(p0: number, p1: number) {

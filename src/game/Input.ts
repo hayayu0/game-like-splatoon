@@ -1,6 +1,7 @@
 /** キーボード・マウス・ポインタロックの入力管理 */
 export class Input {
   private keys = new Set<string>();
+  private pressed = new Set<string>();
   firing = false; // 左ボタン押下中
   rightMouse = false; // 右ボタン押下中（イカ潜伏）
   locked = false;
@@ -9,7 +10,10 @@ export class Input {
   private mouseDY = 0;
 
   constructor(private domElement: HTMLElement) {
-    window.addEventListener('keydown', (e) => this.keys.add(e.code));
+    window.addEventListener('keydown', (e) => {
+      if (!this.keys.has(e.code)) this.pressed.add(e.code);
+      this.keys.add(e.code);
+    });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
 
     document.addEventListener('mousemove', (e) => {
@@ -36,6 +40,7 @@ export class Input {
         this.firing = false;
         this.rightMouse = false;
         this.keys.clear();
+        this.pressed.clear();
       }
     });
 
@@ -51,6 +56,13 @@ export class Input {
 
   isDown(code: string): boolean {
     return this.keys.has(code);
+  }
+
+  /** キーを押した瞬間だけ true を返す */
+  consumePressed(code: string): boolean {
+    const wasPressed = this.pressed.has(code);
+    this.pressed.delete(code);
+    return wasPressed;
   }
 
   get squidPressed(): boolean {
