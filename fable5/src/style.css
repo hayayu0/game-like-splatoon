@@ -10,7 +10,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
 html, body, #app { width: 100%; height: 100%; overflow: hidden; background: #0c0a14; }
 body { font-family: var(--font); color: #fff; }
-#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 #gl.dead { filter: grayscale(0.75) brightness(0.75); }
 #gl, #hud { transition: filter 0.35s; }
 
@@ -166,7 +166,7 @@ body { font-family: var(--font); color: #fff; }
 #coverPctR { color: var(--ink1-hi); text-align: left; }
 
 /* 照準 + HP リング */
-#crosshair { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); }
+#crosshair { position: absolute; left: calc(50% + 26px); top: calc(50% + 52px); width: 120px; height: 120px; transform: translate(-50%, -50%); }
 #crosshair svg { width: 100%; height: 100%; }
 .ch-bg { fill: none; stroke: rgba(0,0,0,0.4); stroke-width: 7; }
 #hpRing {

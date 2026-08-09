@@ -332,24 +332,106 @@ export class PlayerController implements Controller {
   intent = newIntent();
   private tmpF = new THREE.Vector3();
   private tmpR = new THREE.Vector3();
+  private tapPath: THREE.Vector3[] = [];
+  private tapPathI = 0;
 
   constructor(private input: Input, private cam: GameCamera) {}
 
-  update() {
+  reset() {
+    this.tapPath = [];
+    this.tapPathI = 0;
+  }
+
+  update(_dt: number, agent: Agent, game: Game) {
     const i = this.input;
     const it = this.intent;
     const mx = (i.down('KeyD') ? 1 : 0) - (i.down('KeyA') ? 1 : 0);
     const mz = (i.down('KeyW') ? 1 : 0) - (i.down('KeyS') ? 1 : 0);
+    it.jump = false;
     dirFromYawPitch(this.cam.yaw, 0, this.tmpF);
     rightFromYaw(this.cam.yaw, this.tmpR);
     it.moveX = this.tmpF.x * mz + this.tmpR.x * mx;
     it.moveZ = this.tmpF.z * mz + this.tmpR.z * mx;
+
+    const tap = i.consumeTap();
+    let tapShoot = false;
+    if (tap?.onAim) {
+      tapShoot = true;
+    } else if (tap) {
+      this.setTapPath(tap.ndcX, tap.ndcY, agent, game);
+    }
+
+    if (mx !== 0 || mz !== 0) {
+      this.tapPath = [];
+      this.tapPathI = 0;
+    } else {
+      this.followTapPath(agent, it);
+    }
+
     it.aimYaw = this.cam.yaw;
     it.aimPitch = this.cam.pitch;
     it.aimPoint.copy(this.cam.aimPoint);
     // firePressed: 1フレームより短いクリックも取りこぼさない
-    it.shoot = i.firePressed(0);
-    it.jump = i.down('Space');
+    it.shoot = tapShoot || i.firePressed(0);
+    it.jump = it.jump || i.down('Space');
     it.dash = i.down('ShiftLeft') || i.down('ShiftRight');
   }
+
+  private setTapPath(ndcX: number, ndcY: number, agent: Agent, game: Game) {
+    const hit = this.cam.pointFromScreen(ndcX, ndcY, game.world);
+    if (!hit || hit.normal.y < 0.7) return;
+
+    const goal = game.nav.cellIndexAt(hit.point.x, hit.point.z);
+    if (goal < 0 || !game.nav.walk[goal]) return;
+    const goalPoint = game.nav.cellCenter(goal);
+    if (Math.abs(goalPoint.y - hit.point.y) > 0.7) return;
+
+    const path = game.nav.findPath(agent.pos.x, agent.pos.z, goalPoint.x, goalPoint.z);
+    if (path.length === 0) return;
+    this.tapPath = limitPath(path, agent.pos, game.nav.cell * 5);
+    this.tapPathI = 0;
+  }
+
+  private followTapPath(agent: Agent, it: Intent) {
+    it.jump = false;
+    while (this.tapPathI < this.tapPath.length) {
+      const wp = this.tapPath[this.tapPathI];
+      const dx = wp.x - agent.pos.x;
+      const dz = wp.z - agent.pos.z;
+      const len = Math.hypot(dx, dz);
+      const last = this.tapPathI === this.tapPath.length - 1;
+      if (len <= (last ? 0.28 : 0.65)) {
+        this.tapPathI++;
+        continue;
+      }
+      it.moveX = dx / len;
+      it.moveZ = dz / len;
+      if (wp.y - agent.pos.y > 0.6 && len < 2.2 && agent.grounded) it.jump = true;
+      return;
+    }
+    this.tapPath = [];
+    this.tapPathI = 0;
+  }
+}
+
+/** 経路を水平距離maxDistanceで打ち切る。 */
+function limitPath(path: THREE.Vector3[], start: THREE.Vector3, maxDistance: number): THREE.Vector3[] {
+  const out: THREE.Vector3[] = [];
+  const prev = start.clone();
+  let remain = maxDistance;
+  for (const point of path) {
+    const distance = Math.hypot(point.x - prev.x, point.z - prev.z);
+    if (distance <= 1e-4) continue;
+    if (distance <= remain) {
+      out.push(point.clone());
+      remain -= distance;
+      prev.copy(point);
+      if (remain <= 1e-4) break;
+      continue;
+    }
+    const t = remain / distance;
+    out.push(prev.clone().lerp(point, t));
+    break;
+  }
+  return out;
 }

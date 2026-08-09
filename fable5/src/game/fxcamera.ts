@@ -16,6 +16,8 @@ export class GameCamera {
   private tmpDesired = new THREE.Vector3();
   private tmpClamped = new THREE.Vector3();
   private tmpLook = new THREE.Vector3();
+  private tmpScreen = new THREE.Vector3();
+  private tmpRayEnd = new THREE.Vector3();
   private t = 0;
   /** 0..1: 試合開始時の俯瞰→背後ブレンド */
   introBlend = 0;
@@ -39,6 +41,13 @@ export class GameCamera {
     const s = 0.0023;
     this.yaw -= dx * s;
     this.pitch = clamp(this.pitch - dy * s, -1.15, 1.25);
+  }
+
+  /** 画面座標(NDC)から地形へレイを飛ばし、最初の交点を返す。 */
+  pointFromScreen(ndcX: number, ndcY: number, world: CollisionWorld): { point: THREE.Vector3; normal: THREE.Vector3 } | null {
+    this.tmpScreen.set(ndcX, ndcY, 0.5).unproject(this.cam).sub(this.cam.position).normalize();
+    this.tmpRayEnd.copy(this.cam.position).addScaledVector(this.tmpScreen, 120);
+    return world.segmentHit(this.cam.position, this.tmpRayEnd, 0.02);
   }
 
   snapBehind(targetPos: THREE.Vector3, yaw: number) {
