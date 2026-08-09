@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { angleDelta, clamp, damp, dirFromYawPitch, INK_COLORS, rightFromYaw } from '../core/utils';
+import { angleDelta, clamp, damp, dirFromYawPitch, INK_COLORS, rand, rightFromYaw } from '../core/utils';
 import { buildCharacter, CharacterRig } from './charModel';
 import { Input } from '../core/input';
 import { GameCamera } from './fxcamera';
 import type { Game } from './game';
 import { Trail } from './trail';
+import { WEAPONS, WEAPON_COUNT, type WeaponDef } from './weapons';
 
 export interface Intent {
   moveX: number;
@@ -34,8 +35,8 @@ const ENEMY_INK = 2.6;
 const OWN_INK = 6.8;
 const JUMP_V = 8.6;
 const G = 22;
-const FIRE_CD = 0.135;
-const FIRE_COST = 1.9;
+const SWEEPER_LUNGE_SPEED = WALK * 6;
+const SWEEPER_TURNS = 1;
 
 export class Agent {
   pos = new THREE.Vector3();
@@ -70,6 +71,12 @@ export class Agent {
   private tmpRight = new THREE.Vector3();
   private tmpChest = new THREE.Vector3();
   private tmpAim = new THREE.Vector3();
+  private tmpPaint = new THREE.Vector3();
+  private spinT = 0;
+  private spinVisualAngle = 0;
+  private spinRadius = 0;
+  private spinWeapon: WeaponDef | null = null;
+  private spinHits = new Set<Agent>();
 
   constructor(
     public team: number,
@@ -77,7 +84,8 @@ export class Agent {
     public kind: 'squid' | 'octo',
     public isPlayer: boolean,
     public spawn: { pos: THREE.Vector3; yaw: number },
-    public controller: Controller
+    public controller: Controller,
+    public weaponIndex = 0
   ) {
     this.rig = buildCharacter(team, kind);
     this.trail = new Trail(team);
@@ -96,6 +104,10 @@ export class Agent {
     this.respawnT = 0;
     this.invulnT = 0;
     this.swim = false;
+    this.spinT = 0;
+    this.spinVisualAngle = 0;
+    this.spinWeapon = null;
+    this.spinHits.clear();
     this.visualY = this.pos.y;
     this.fireT = this.landT = this.hurtT = 9;
     this.rig.root.visible = true;
@@ -130,7 +142,7 @@ export class Agent {
     this.groundTeam = game.paint.floorTeamAt(this.pos.x, this.pos.y, this.pos.z);
     const onOwn = this.groundTeam === this.team;
     const onEnemy = this.groundTeam === 1 - this.team;
-    const wantSwim = it.dash && onOwn && !it.shoot;
+    const wantSwim = this.spinT <= 0 && it.dash && onOwn && !it.shoot;
     this.swim = wantSwim;
 
     let maxSpeed = WALK;
@@ -145,6 +157,7 @@ export class Agent {
     const accel = this.grounded ? 13 : 4.5;
     this.vel.x = damp(this.vel.x, mx * maxSpeed, accel, dt);
     this.vel.z = damp(this.vel.z, mz * maxSpeed, accel, dt);
+    if (this.spinT > 0) this.vel.x = this.vel.z = 0;
 
     // 向き: 泳ぎ中は進行方向、それ以外はエイム方向
     const moving = mlen > 0.1;
@@ -181,12 +194,15 @@ export class Agent {
 
     // 射撃
     this.fireCd -= dt;
+    if (this.spinT > 0) this.updateSpin(dt, game);
     if (it.shoot && !this.swim && this.fireCd <= 0) {
-      if (this.energy >= FIRE_COST) {
-        this.fireCd = FIRE_CD;
+      const weapon = WEAPONS[this.weaponIndex];
+      if (this.energy >= weapon.fireCost) {
+        this.fireCd = weapon.fireCd;
         this.fireT = 0;
-        this.energy -= FIRE_COST;
-        this.shoot(it, game);
+        this.energy -= weapon.fireCost;
+        if (weapon.kind === 'spin') this.startSpin(game, weapon);
+        else this.shoot(it, game, weapon);
       } else if (this.isPlayer) {
         this.fireCd = 0.2;
         game.audio.sfx('dry');
@@ -227,7 +243,7 @@ export class Agent {
     // 見た目更新
     this.visualY = damp(this.visualY, this.pos.y, 22, dt);
     this.rig.root.position.set(this.pos.x, this.visualY, this.pos.z);
-    this.rig.root.rotation.y = this.yaw;
+    this.rig.root.rotation.y = this.yaw + this.spinVisualAngle;
     this.rig.update({
       t: game.time,
       dt,
@@ -253,12 +269,52 @@ export class Agent {
     }
   }
 
+  /** 足元を塗りながら回転し、範囲内の敵へ1回ずつ接触ダメージを与える。 */
+  private startSpin(game: Game, weapon: WeaponDef) {
+    this.spinT = weapon.fireCd;
+    this.spinVisualAngle = 0;
+    this.spinRadius = rand(...weapon.paintRadius);
+    this.spinWeapon = weapon;
+    this.spinHits.clear();
+    this.tmpPaint.copy(this.pos);
+    const gained = game.paint.paintAt(this.team, this.tmpPaint, new THREE.Vector3(0, 1, 0), this.spinRadius);
+    this.paintScore += gained;
+    game.particles.burst(this.pos, INK_COLORS[this.team], 14, 4.2, 0.11, 0.55);
+    game.audio.sfx('shoot', this.pos);
+  }
+
+  private updateSpin(dt: number, game: Game) {
+    const weapon = this.spinWeapon;
+    if (!weapon) return;
+    this.spinT = Math.max(0, this.spinT - dt);
+    const progress = 1 - this.spinT / weapon.fireCd;
+    this.spinVisualAngle = progress * Math.PI * 2 * SWEEPER_TURNS;
+
+    for (const a of game.agents) {
+      if (a.team === this.team || !a.alive || a.invulnT > 0 || this.spinHits.has(a)) continue;
+      const dx = a.pos.x - this.pos.x;
+      const dz = a.pos.z - this.pos.z;
+      if (dx * dx + dz * dz > this.spinRadius * this.spinRadius || Math.abs(a.pos.y - this.pos.y) > this.height) continue;
+      this.spinHits.add(a);
+      const damage = this.isPlayer ? weapon.damage : weapon.damageAI;
+      a.damage(rand(...damage), this, game);
+      if (this.isPlayer) game.ui.hitmarker();
+    }
+
+    if (this.spinT > 0) return;
+    this.spinVisualAngle = 0;
+    this.spinWeapon = null;
+    dirFromYawPitch(this.yaw, 0, this.tmpDir);
+    this.vel.x = this.tmpDir.x * SWEEPER_LUNGE_SPEED;
+    this.vel.z = this.tmpDir.z * SWEEPER_LUNGE_SPEED;
+  }
+
   /**
    * 発射位置と方向を「そのフレームの姿勢」から直接求めて撃つ。
    * リグから取る銃口ワールド座標は1フレーム古く、高速移動中や旋回中に
    * 壁の内側から発射されて弾が即消滅する（＝インクが出ない）原因になる。
    */
-  private shoot(it: Intent, game: Game) {
+  private shoot(it: Intent, game: Game, weapon: WeaponDef) {
     dirFromYawPitch(it.aimYaw, it.aimPitch, this.tmpDir);
     rightFromYaw(it.aimYaw, this.tmpRight);
     // 胸元は必ず地形の外側にあるので、そこを起点に安全な発射点を探す
@@ -275,9 +331,14 @@ export class Agent {
     if (this.tmpAim.lengthSq() > 9 && this.tmpAim.dot(this.tmpDir) > 0) {
       this.tmpDir.copy(this.tmpAim).normalize();
     }
-    game.projectiles.fire(this, this.tmpMuz, this.tmpDir, this.isPlayer ? 0.02 : 0.05);
+    const spread = this.isPlayer ? weapon.spreadPlayer : weapon.spreadAI;
+    game.projectiles.fire(this, this.tmpMuz, this.tmpDir, spread, weapon);
     game.audio.sfx('shoot', this.pos);
     if (this.isPlayer) game.camera.recoil();
+  }
+
+  switchWeapon() {
+    this.weaponIndex = (this.weaponIndex + 1) % WEAPON_COUNT;
   }
 
   damage(amount: number, from: Agent, game: Game) {
@@ -334,17 +395,27 @@ export class PlayerController implements Controller {
   private tmpR = new THREE.Vector3();
   private tapPath: THREE.Vector3[] = [];
   private tapPathI = 0;
+  private weaponSwitchQueued = false;
 
   constructor(private input: Input, private cam: GameCamera) {}
 
   reset() {
     this.tapPath = [];
     this.tapPathI = 0;
+    this.weaponSwitchQueued = false;
+  }
+
+  queueWeaponSwitch() {
+    this.weaponSwitchQueued = true;
   }
 
   update(_dt: number, agent: Agent, game: Game) {
     const i = this.input;
     const it = this.intent;
+    if (this.weaponSwitchQueued) {
+      this.weaponSwitchQueued = false;
+      agent.switchWeapon();
+    }
     const mx = (i.down('KeyD') ? 1 : 0) - (i.down('KeyA') ? 1 : 0);
     const mz = (i.down('KeyW') ? 1 : 0) - (i.down('KeyS') ? 1 : 0);
     it.jump = false;

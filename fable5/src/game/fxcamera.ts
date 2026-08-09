@@ -23,8 +23,6 @@ export class GameCamera {
   introBlend = 0;
 
   constructor(aspect: number) {
-    // near を 0.1 まで下げると深度バッファの精度が落ち、GTAO が近距離で
-    // 黒い矩形状のノイズを出す。三人称カメラは壁から0.3以上離れるので0.3で足りる。
     this.cam = new THREE.PerspectiveCamera(64, aspect, 0.3, 460);
   }
 
@@ -112,6 +110,5 @@ export class GameCamera {
     const to = new THREE.Vector3().copy(this.cam.position).addScaledVector(dir, 70);
     const hit = world.segmentHit(from, to, 0.02);
     this.aimPoint.copy(hit ? hit.point : to);
-    this.cam.userData.dofFocusDistance = this.cam.position.distanceTo(this.aimPoint);
   }
 }

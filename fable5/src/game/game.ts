@@ -16,6 +16,7 @@ import { PostFX } from './post';
 import { UI } from './ui';
 import { Agent, PlayerController } from './character';
 import { AIController } from './ai';
+import { WEAPONS } from './weapons';
 
 type State = 'title' | 'pre' | 'play' | 'pause' | 'over' | 'result';
 
@@ -109,15 +110,25 @@ export class Game {
     this.ui.onRematch = () => this.startMatch();
     this.ui.onResume = () => this.resumeGame();
     this.ui.onTitle = () => this.gotoTitle();
+    this.ui.onWeaponSwitch = () => {
+      if (this.state === 'play' && this.player.alive && this.player.controller instanceof PlayerController) {
+        this.player.controller.queueWeaponSwitch();
+      }
+    };
     this.input.onLockLost = () => {
-      if (this.state === 'play' || this.state === 'pre') this.pauseGame();
+      // 'pre'（開始カウントダウン）中のEsc→ポーズは、再開時にカメラが
+      // イントロ演出の途中で止まって復帰できなくなる不具合の原因になるため無効化する。
+      if (this.state === 'play') this.pauseGame();
     };
     this.input.onKeyDown = (code) => {
       if (code === 'Escape' && this.state === 'pause') this.resumeGame();
+      if (code === 'KeyZ' && this.state === 'play' && this.player.alive && this.player.controller instanceof PlayerController) {
+        this.player.controller.queueWeaponSwitch();
+      }
     };
     // Escからの復帰などでロックが外れたままプレイ中になった場合、クリックで再ロック
     canvas.addEventListener('mousedown', () => {
-      if (this.state === 'play' && !this.auto && !this.input.locked) void this.input.lock();
+      if ((this.state === 'play' || this.state === 'pre') && !this.auto && !this.input.locked) void this.input.lock();
     });
     addEventListener('resize', () => {
       this.renderer.setSize(innerWidth, innerHeight);
@@ -164,8 +175,10 @@ export class Game {
       [1, 'デビラ', 'octo', 2, 1.1, -1],
     ];
     this.agents = [this.player];
+    const aiWeaponIndices = WEAPONS.flatMap((weapon, index) => weapon.kind === 'projectile' ? [index] : []);
     for (const [team, name, kind, slot, agg, lane] of defs) {
-      this.agents.push(new Agent(team, name, kind, false, sp[team][slot], new AIController(agg, lane)));
+      const weaponIndex = aiWeaponIndices[Math.floor(Math.random() * aiWeaponIndices.length)];
+      this.agents.push(new Agent(team, name, kind, false, sp[team][slot], new AIController(agg, lane), weaponIndex));
     }
     for (const a of this.agents) {
       this.scene.add(a.rig.root);
@@ -287,6 +300,7 @@ export class Game {
     this.ui.setHP(this.player.hp / 100);
     this.ui.setTimer(this.timeLeft);
     this.ui.setSpread(this.player.fireT < 0.2);
+    this.ui.setWeapon(WEAPONS[this.player.weaponIndex].name);
   }
 
   private update(dt: number) {
@@ -409,15 +423,13 @@ export class Game {
       const fps = this.fpsN / this.fpsT;
       this.fpsN = 0;
       this.fpsT = 0;
-      if (fps < 45 && this.qualityLevel < 4) {
+      if (fps < 45 && this.qualityLevel < 2) {
         this.qualityLevel++;
-        if (this.qualityLevel === 1) this.post.setDOF(false);
-        if (this.qualityLevel === 2) this.post.setAO(false);
-        if (this.qualityLevel === 3) {
+        if (this.qualityLevel === 1) {
           this.renderer.setPixelRatio(1.2);
           this.post.setSize(innerWidth, innerHeight);
         }
-        if (this.qualityLevel === 4) {
+        if (this.qualityLevel === 2) {
           this.renderer.setPixelRatio(1.0);
           this.post.setSize(innerWidth, innerHeight);
         }

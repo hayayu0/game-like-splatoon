@@ -883,6 +883,47 @@ body {
   text-shadow: 0 3px 0 rgba(0,0,0,0.68), 0 0 9px rgba(255,190,70,0.58);
 }
 
+#weaponName {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+  left: 26px;
+  bottom: 24px;
+  min-width: 132px;
+  padding: 10px 18px;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(30,22,48,0.78), rgba(7,4,16,0.76));
+  box-shadow: 0 10px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  font-style: italic;
+  text-align: center;
+  text-shadow: 0 2px 3px rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#weaponSwitchKey {
+  position: absolute;
+  left: 184px;
+  bottom: 31px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #4a3d80, #2c2254);
+  box-shadow: 0 3px 0 #191238, inset 0 0 0 1px rgba(255,255,255,0.14);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 28px;
+  text-align: center;
+  text-shadow: 0 2px 3px rgba(0,0,0,0.8);
+}
+
 #inkPct::after {
   content: "%";
   margin-left: 1px;

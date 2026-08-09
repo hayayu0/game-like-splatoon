@@ -649,11 +649,11 @@ normal = normalize((viewMatrix * vec4(triNormalW, 0.0)).xyz);`,
 /** ペイントオーバーレイ材質: アトラスを参照し、インク部分だけ光沢面として描く */
 function makeOverlayMaterial(paint: PaintSystem): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({
-    roughness: 0.16,
+    roughness: 0.75,
     metalness: 0.0,
     transparent: true,
     depthWrite: false,
-    envMapIntensity: 1.1,
+    envMapIntensity: 0.2,
   });
   mat.onBeforeCompile = (shader) => {
     shader.defines = Object.assign(shader.defines ?? {}, { USE_UV: '' });
@@ -672,7 +672,7 @@ vec4 diffuseColor = vec4(inkCol * (1.0 - rim * 0.2), pm);`,
       )
       .replace(
         '#include <roughnessmap_fragment>',
-        'float roughnessFactor = clamp(roughness * mix(0.86, 1.22, dryGrain), 0.12, 0.24);',
+        'float roughnessFactor = clamp(roughness * mix(0.86, 1.22, dryGrain), 0.55, 0.85);',
       )
       .replace(
         '#include <normal_fragment_maps>',

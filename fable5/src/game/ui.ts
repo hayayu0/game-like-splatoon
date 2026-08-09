@@ -9,6 +9,7 @@ export class UI {
   onRematch: () => void = () => {};
   onResume: () => void = () => {};
   onTitle: () => void = () => {};
+  onWeaponSwitch: () => void = () => {};
   private howtoFrom: 'title' | 'pause' = 'title';
   private vigFlash = 0;
   private vigBase = 0;
@@ -31,6 +32,7 @@ export class UI {
   private inkMeter = $('inkMeter');
   private inkFill = $('inkFill') as unknown as SVGRectElement;
   private inkPct = $('inkPct');
+  private weaponName = $('weaponName');
   private killfeed = $('killfeed');
   private centerEl = $('centerMsg');
   private killPopEl = $('killPop');
@@ -61,6 +63,7 @@ export class UI {
     click('btnPauseTitle', () => this.onTitle());
     click('btnRematch', () => this.onRematch());
     click('btnResultTitle', () => this.onTitle());
+    click('weaponName', () => this.onWeaponSwitch());
     document.querySelectorAll('.btn').forEach((b) =>
       b.addEventListener('mouseenter', () => this.audio.sfx('uiHover'))
     );
@@ -115,6 +118,10 @@ export class UI {
 
   setSpread(firing: boolean) {
     this.chSpread.setAttribute('r', firing ? '19' : '14');
+  }
+
+  setWeapon(name: string) {
+    this.weaponName.textContent = name;
   }
 
   hitmarker() {
