@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { angleDelta, clamp, damp, dirFromYawPitch, INK_COLORS, rand, rightFromYaw } from '../core/utils';
+import { angleDelta, clamp, damp, dirFromYawPitch, INK_COLORS, rightFromYaw } from '../core/utils';
 import { buildCharacter, CharacterRig } from './charModel';
 import { Input } from '../core/input';
 import { GameCamera } from './fxcamera';
 import type { Game } from './game';
+import { Trail } from './trail';
 
 export interface Intent {
   moveX: number;
@@ -57,6 +58,7 @@ export class Agent {
   deaths = 0;
   paintScore = 0;
   rig: CharacterRig;
+  readonly trail: Trail;
   radius = 0.42;
   height = 1.5;
   private visualY = 0;
@@ -78,6 +80,7 @@ export class Agent {
     public controller: Controller
   ) {
     this.rig = buildCharacter(team, kind);
+    this.trail = new Trail(team);
     this.resetState();
   }
 
@@ -97,6 +100,7 @@ export class Agent {
     this.fireT = this.landT = this.hurtT = 9;
     this.rig.root.visible = true;
     this.rig.setFlash(0);
+    this.trail.clear();
     this.controller.reset?.();
   }
 
@@ -111,6 +115,7 @@ export class Agent {
   update(dt: number, game: Game, allowControl: boolean) {
     if (!this.alive) {
       this.respawnT -= dt;
+      this.trail.update(dt, this.pos, false, 0);
       if (this.respawnT <= 0) this.respawn(game);
       return;
     }
@@ -199,6 +204,9 @@ export class Agent {
     }
     // 走り中の足元しぶき
     const hspeed = Math.hypot(this.vel.x, this.vel.z);
+    const trailActive = (this.swim && moving) || hspeed > WALK * 1.05;
+    const trailWidth = (this.swim ? 0.3 : 0.2) * clamp(hspeed / SWIM, 0.55, 1);
+    this.trail.update(dt, this.pos, trailActive, trailWidth);
     if (!this.swim && this.grounded && hspeed > 3) {
       this.stepT -= dt;
       if (this.stepT <= 0) {
@@ -277,7 +285,7 @@ export class Agent {
     this.hp -= amount;
     this.hurtT = 0;
     if (this.isPlayer) {
-      game.ui.damageFlash(this.hp);
+      game.ui.damageFlash();
       game.camera.addShake(0.35);
       game.audio.sfx('damage');
     } else {
@@ -327,7 +335,7 @@ export class PlayerController implements Controller {
 
   constructor(private input: Input, private cam: GameCamera) {}
 
-  update(dt: number, agent: Agent, game: Game) {
+  update() {
     const i = this.input;
     const it = this.intent;
     const mx = (i.down('KeyD') ? 1 : 0) - (i.down('KeyA') ? 1 : 0);

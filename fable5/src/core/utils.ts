@@ -7,7 +7,6 @@ export const damp = (a: number, b: number, lambda: number, dt: number) =>
   lerp(a, b, 1 - Math.exp(-lambda * dt));
 export const rand = (a = 1, b?: number) => (b === undefined ? Math.random() * a : a + Math.random() * (b - a));
 export const randSpread = (r: number) => (Math.random() * 2 - 1) * r;
-export const pick = <T>(arr: T[]): T => arr[(Math.random() * arr.length) | 0];
 
 /** 角度差を [-PI, PI] に正規化 */
 export const angleDelta = (from: number, to: number) => {
@@ -16,9 +15,6 @@ export const angleDelta = (from: number, to: number) => {
   if (d < -Math.PI) d += Math.PI * 2;
   return d;
 };
-
-export const TEAM_PLAYER = 0;
-export const TEAM_ENEMY = 1;
 
 /** チームインク色（linear計算はthree側で行うのでsRGB指定） */
 export const INK_HEX = ['#ff8c1a', '#8a3cff'];

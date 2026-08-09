@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Input } from '../core/input';
 import { AudioMan } from '../core/audio';
-import { clamp, INK_HI_HEX } from '../core/utils';
+import { clamp, INK_COLORS, INK_HI_COLORS, INK_HI_HEX } from '../core/utils';
 import { CollisionWorld } from './collision';
 import { PaintSystem } from './paint';
 import { buildStage, prepaintSpawns, StageData } from './stage';
+import { selectStageDefinition } from './stageLayouts';
 import { buildEnv, EnvData } from './env';
 import { NavGrid } from './nav';
 import { Particles } from './particles';
@@ -46,6 +47,7 @@ export class Game {
 
   private preT = 0;
   private overT = 0;
+  private cinematicScale = 1;
   private lastCount = -1;
   private covT = 0;
   private clock = new THREE.Clock();
@@ -82,7 +84,8 @@ export class Game {
       console.warn('env map failed', e);
     }
 
-    this.stage = buildStage(this.paint, this.world);
+    const stageDefinition = selectStageDefinition(params.get('stage'));
+    this.stage = buildStage(this.paint, this.world, stageDefinition);
     this.scene.add(this.stage.group);
     this.nav = this.stage.nav;
     this.env = buildEnv(this.scene);
@@ -99,7 +102,7 @@ export class Game {
 
     // 初期ペイント（タイトル画面の背景用）
     this.paint.clearAll();
-    prepaintSpawns(this.paint);
+    prepaintSpawns(this.paint, this.stage);
 
     // UI配線
     this.ui.onStart = () => this.startMatch();
@@ -166,6 +169,7 @@ export class Game {
     }
     for (const a of this.agents) {
       this.scene.add(a.rig.root);
+      this.scene.add(a.trail.mesh);
       if (a.team === 0 && !a.isPlayer) {
         a.rig.root.add(makeNameTag(a.name, INK_HI_HEX[0]));
       }
@@ -175,13 +179,14 @@ export class Game {
   startMatch() {
     this.audio.ensure();
     this.paint.clearAll();
-    prepaintSpawns(this.paint);
+    prepaintSpawns(this.paint, this.stage);
     this.projectiles.clear();
     for (const a of this.agents) {
       a.resetState();
       a.resetStats();
     }
     this.timeLeft = this.matchLen;
+    this.cinematicScale = 1;
     this.state = 'pre';
     this.preT = 3.5;
     this.lastCount = -1;
@@ -201,7 +206,7 @@ export class Game {
     if (this.state !== 'play' && this.state !== 'pre') return;
     this.state = 'pause';
     this.ui.show('hud');
-    this.ui.showHudOver('pause');
+    this.ui.showHudOver();
     this.input.unlock();
   }
 
@@ -214,6 +219,7 @@ export class Game {
   }
 
   gotoTitle() {
+    this.cinematicScale = 1;
     this.state = 'title';
     this.ui.show('title');
     this.camera.introBlend = 1;
@@ -225,12 +231,41 @@ export class Game {
   endMatch() {
     this.state = 'over';
     this.overT = 2.4;
+    window.setTimeout(() => {
+      if (this.state === 'over') this.showResultScreen();
+    }, 2400);
+    this.cinematicScale = 0.42;
+    this.coverageCache = this.paint.coverage();
+    const [c0, c1] = this.coverageCache;
+    const draw = Math.abs(c0 - c1) < 0.05;
+    const winner = draw ? -1 : c0 > c1 ? 0 : 1;
+    const color = winner >= 0 ? INK_COLORS[winner] : INK_COLORS[0];
+    const accent = winner >= 0 ? INK_HI_COLORS[winner] : INK_COLORS[1];
+    this.particles.celebrate(this.camera.cam, color, accent, 420);
+    this.ui.victoryFlash(`#${color.getHexString()}`);
+    this.camera.addShake(0.22);
     this.audio.sfx('whistle');
     this.audio.setMusic('none');
     this.ui.centerMsg('タイムアップ!', 2200);
     this.input.unlock();
     this.canvas.classList.remove('dead');
     this.ui.hideRespawn();
+  }
+
+  private showResultScreen() {
+    if (this.state === 'result') return;
+    this.state = 'result';
+    this.coverageCache = this.paint.coverage();
+    const [c0, c1] = this.coverageCache;
+    const draw = Math.abs(c0 - c1) < 0.05;
+    const win = c0 > c1;
+    this.ui.showResult(win, draw, c0, c1, {
+      paint: this.player.paintScore,
+      kills: this.player.kills,
+      deaths: this.player.deaths,
+    });
+    this.cinematicScale = 1;
+    this.audio.jingle(win && !draw);
   }
 
   onKill(killer: Agent, victim: Agent) {
@@ -315,23 +350,11 @@ export class Game {
       this.projectiles.update(dt, this);
       this.camera.introBlend = clamp(1 - this.overT / 1.2, 0, 0.9);
       this.camera.update(dt, this.world, this.player.pos, false);
-      if (this.overT <= 0) {
-        this.state = 'result';
-        this.coverageCache = this.paint.coverage();
-        const [c0, c1] = this.coverageCache;
-        const draw = Math.abs(c0 - c1) < 0.05;
-        const win = c0 > c1;
-        this.ui.showResult(win, draw, c0, c1, {
-          paint: this.player.paintScore,
-          kills: this.player.kills,
-          deaths: this.player.deaths,
-        });
-        this.audio.jingle(win && !draw);
-      }
     }
     // pause中は何も更新しない（描画のみ）
 
     this.env.update(this.time, st === 'pause' ? 0 : dt);
+    this.stage.decor.update(this.time, st === 'pause' ? 0 : dt);
     this.particles.update(st === 'pause' ? 0 : dt);
     this.ui.tick(dt);
   }
@@ -362,7 +385,6 @@ export class Game {
   }
 
   private lastStepMs = 0;
-  private frameN = 0;
 
   private loop = () => {
     requestAnimationFrame(this.loop);
@@ -371,9 +393,9 @@ export class Game {
 
   private step() {
     this.lastStepMs = performance.now();
-    this.frameN++;
     const raw = Math.min(this.clock.getDelta(), 0.05);
-    const dt = raw * this.timeScale;
+    const dt = raw * this.timeScale * this.cinematicScale;
+    this.cinematicScale += (1 - this.cinematicScale) * (1 - Math.exp(-2.2 * raw));
     this.time += dt;
     this.update(dt);
     this.paint.commit(this.time);
@@ -387,14 +409,15 @@ export class Game {
       const fps = this.fpsN / this.fpsT;
       this.fpsN = 0;
       this.fpsT = 0;
-      if (fps < 45 && this.qualityLevel < 3) {
+      if (fps < 45 && this.qualityLevel < 4) {
         this.qualityLevel++;
-        if (this.qualityLevel === 1) this.post.setAO(false);
-        if (this.qualityLevel === 2) {
+        if (this.qualityLevel === 1) this.post.setDOF(false);
+        if (this.qualityLevel === 2) this.post.setAO(false);
+        if (this.qualityLevel === 3) {
           this.renderer.setPixelRatio(1.2);
           this.post.setSize(innerWidth, innerHeight);
         }
-        if (this.qualityLevel === 3) {
+        if (this.qualityLevel === 4) {
           this.renderer.setPixelRatio(1.0);
           this.post.setSize(innerWidth, innerHeight);
         }

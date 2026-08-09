@@ -19,7 +19,6 @@ const SPRITE = 128;
 const SPRITE_R = 44; // スプライト内の代表半径(px)
 
 export interface PaintSurface {
-  id: number;
   kind: 'floor' | 'wall';
   px: number; py: number; pw: number; ph: number; // アトラス内矩形(px, 原点は左下)
   // floor
@@ -46,7 +45,6 @@ export class PaintSystem {
   private curX = PAD;
   private curY = PAD;
   private rowH = 0;
-  private nextId = 0;
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -89,7 +87,7 @@ export class PaintSystem {
     const gw = Math.ceil(w / CELL);
     const gd = Math.ceil(d / CELL);
     const s: PaintSurface = {
-      id: this.nextId++, kind: 'floor', px, py, pw, ph,
+      kind: 'floor', px, py, pw, ph,
       x0, z0, w, d, y, grid: new Uint8Array(gw * gd), gw, gd,
       axis: null, fixed: 0, u0: 0, y0: 0, hh: 0,
     };
@@ -104,7 +102,7 @@ export class PaintSystem {
     const ph = Math.ceil(hh * WALL_PXM);
     const { px, py } = this.alloc(pw, ph);
     const s: PaintSurface = {
-      id: this.nextId++, kind: 'wall', px, py, pw, ph,
+      kind: 'wall', px, py, pw, ph,
       x0: 0, z0: 0, w, d: 0, y: 0, grid: null, gw: 0, gd: 0,
       axis, fixed, u0, y0, hh,
     };

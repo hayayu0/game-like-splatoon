@@ -3,7 +3,7 @@ import { clamp, rand, randSpread } from '../core/utils';
 import { Agent, Controller, newIntent } from './character';
 import type { Game } from './game';
 
-type Mode = 'paint' | 'attack' | 'retreat' | 'defend' | 'highground';
+type Mode = 'paint' | 'attack' | 'retreat' | 'defend' | 'highground' | 'recover';
 
 /**
  * ユーティリティベースAI:
@@ -20,6 +20,8 @@ export class AIController implements Controller {
   private paintGoal: THREE.Vector3 | null = null;
   private burstT = 0;
   private burstOn = true;
+  private paintAim: THREE.Vector3 | null = null;
+  private paintScanT = 0;
   private stuckT = 0;
   private reactT = 0;
   private eye = new THREE.Vector3();
@@ -42,6 +44,10 @@ export class AIController implements Controller {
     this.mode = 'paint';
     this.target = null;
     this.paintGoal = null;
+    this.paintAim = null;
+    this.paintScanT = 0;
+    this.burstT = 0;
+    this.burstOn = true;
     this.decideT = rand(0.4);
   }
 
@@ -131,11 +137,13 @@ export class AIController implements Controller {
     agent.eyePos(this.eye);
     const enemy = this.mode === 'attack' ? this.target : this.nearestVisibleEnemy(agent, game, 15);
     let aimed = false;
+    let visibleEnemy = false;
     if (enemy && enemy.alive) {
       enemy.eyePos(this.tEye);
       const dist = this.eye.distanceTo(this.tEye);
       const visible = dist < 16 && game.world.los(this.eye, this.tEye);
       if (visible) {
+        visibleEnemy = true;
         this.reactT += dt;
         // 狙いのブレをゆっくり漂わせる。1発ごとに乱数を振るより
         // 「狙いが甘い」挙動に近く、撃たれる側から見て理不尽になりにくい
@@ -177,19 +185,33 @@ export class AIController implements Controller {
       this.reactT = 0;
     }
 
-    // 移動先の床を塗る（攻撃中でなければ）
-    if (!aimed && this.mode !== 'retreat' && agent.energy > 28 && moveLen > 0.5) {
+    // 非交戦時は周囲の未塗装/敵色を探し、移動停止中も積極的に塗る
+    if (!aimed && !visibleEnemy && this.mode !== 'retreat' && this.mode !== 'recover' && agent.energy > 28) {
       this.burstT -= dt;
       if (this.burstT <= 0) {
         this.burstOn = !this.burstOn;
-        this.burstT = this.burstOn ? rand(1.4, 2.2) : rand(0.25, 0.45);
+        this.burstT = this.burstOn ? rand(2.8, 4.2) : rand(0.08, 0.16);
       }
-      const ahead = 3.0;
-      const px = agent.pos.x + it.moveX * ahead;
-      const pz = agent.pos.z + it.moveZ * ahead;
-      const ft = game.paint.floorTeamAt(px, agent.pos.y, pz);
-      if (this.burstOn && ft !== agent.team) {
-        it.aimPoint.set(px, agent.pos.y - 0.4, pz);
+
+      this.paintScanT -= dt;
+      let refreshPaintAim = this.paintScanT <= 0 || !this.paintAim;
+      if (this.paintAim) {
+        const dx = this.paintAim.x - agent.pos.x;
+        const dz = this.paintAim.z - agent.pos.z;
+        const distSq = dx * dx + dz * dz;
+        refreshPaintAim ||=
+          distSq < 1.5 * 1.5 ||
+          distSq > 6.5 * 6.5 ||
+          Math.abs(this.paintAim.y - agent.pos.y) > 1.8 ||
+          game.paint.floorTeamAt(this.paintAim.x, this.paintAim.y, this.paintAim.z) === agent.team;
+      }
+      if (refreshPaintAim) {
+        this.paintAim = this.pickNearbyPaintPoint(agent, game);
+        this.paintScanT = this.paintAim ? rand(0.35, 0.6) : rand(0.12, 0.22);
+      }
+
+      if (this.burstOn && this.paintAim) {
+        it.aimPoint.copy(this.paintAim);
         it.shoot = true;
         aimed = true;
       }
@@ -224,7 +246,11 @@ export class AIController implements Controller {
     const opCov = agent.team === 0 ? c1 : c0;
     const behind = opCov - myCov;
     const endgame = timeLeft < 40;
+    // 残り2分から連続的に強まる終盤の圧力(0=通常, 1=試合終了間際)
+    const endgameUrgency = clamp((120 - timeLeft) / 120, 0, 1);
     const enemy = this.nearestVisibleEnemy(agent, game, 17);
+    const energyRatio = agent.energy / 100;
+    const onOwnInk = game.paint.floorTeamAt(agent.pos.x, agent.pos.y, agent.pos.z) === agent.team;
 
     let attackScore = 0;
     if (enemy) {
@@ -233,19 +259,32 @@ export class AIController implements Controller {
         this.aggression * (agent.hp / 100) * (1.5 - dist / 18) +
         (enemy.hp < 55 ? 0.35 : 0) +
         (enemy.isPlayer ? 0.1 : 0);
-      if (endgame) attackScore -= 0.35;
+      attackScore -= endgameUrgency * 0.5;
+      // インクが少ないと実際には撃てないので、攻撃の魅力を下げる
+      attackScore *= clamp(energyRatio / 0.3, 0.4, 1);
     }
     const retreatScore = agent.hp < 34 ? 1.5 : agent.hp < 55 && enemy ? 0.5 : 0;
+    // インク切れ寸前で自陣の上にいなければ、いったん引いてスイム回復する
+    const recoverScore = !onOwnInk && energyRatio < 0.22 ? 1.2 + (0.22 - energyRatio) * 2.5 : 0;
     // 自陣が塗り返されているか
     const homeRatio = this.sampleHomeInvasion(agent, game);
-    const defendScore = homeRatio * 2.0 + (endgame && homeRatio > 0.12 ? 0.7 : 0);
-    let paintScore = 0.85 + Math.max(0, behind) * 0.02 + (endgame ? 0.65 : 0);
+    const defendScore = homeRatio * 2.2 + endgameUrgency * (homeRatio > 0.1 ? 1.0 : 0.2);
+    let paintScore = 0.85 + Math.max(0, behind) * 0.025 + endgameUrgency * 0.75;
     let highScore = 0;
-    if (!endgame && timeLeft < 150 && agent.pos.y < 1.4 && Math.random() < 0.3) highScore = 0.75;
+    if (!endgame && agent.pos.y < 1.4) {
+      // 自陣が押されているほど、高所からの一掃を優先したくなる
+      highScore = 0.3 + Math.max(0, behind) * 0.035 + (Math.random() < 0.3 ? 0.45 : 0);
+    }
 
-    const best = Math.max(attackScore, retreatScore, defendScore, paintScore, highScore);
+    const best = Math.max(attackScore, retreatScore, recoverScore, defendScore, paintScore, highScore);
     if (best === retreatScore && retreatScore > 0) {
       this.mode = 'retreat';
+      this.target = null;
+      this.paintGoal = this.pickRetreatPoint(agent, game);
+      this.path = [];
+      this.repathT = 0;
+    } else if (best === recoverScore && recoverScore > 0) {
+      this.mode = 'recover';
       this.target = null;
       this.paintGoal = this.pickRetreatPoint(agent, game);
       this.path = [];
@@ -291,6 +330,37 @@ export class AIController implements Controller {
       if (d < bestD && game.world.los(this.eye, a.eyePos(this.tEye))) {
         best = a;
         bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /** 周囲2〜6mの複数方向から、自チーム色でない床を次の塗り先に選ぶ */
+  private pickNearbyPaintPoint(agent: Agent, game: Game): THREE.Vector3 | null {
+    const minDistSq = 2 * 2;
+    const maxDistSq = 6 * 6;
+    const cells = game.nav.sampleCells(48, (_, x, z, y) => {
+      const dx = x - agent.pos.x;
+      const dz = z - agent.pos.z;
+      const distSq = dx * dx + dz * dz;
+      return distSq >= minDistSq && distSq <= maxDistSq && Math.abs(y - agent.pos.y) <= 1.6;
+    });
+    const v = new THREE.Vector3();
+    let best: THREE.Vector3 | null = null;
+    let bestScore = -Infinity;
+    for (const c of cells) {
+      game.nav.cellCenter(c, v);
+      const t = game.paint.floorTeamAt(v.x, v.y, v.z);
+      if (t === agent.team) continue;
+      const dx = v.x - agent.pos.x;
+      const dz = v.z - agent.pos.z;
+      let score = t === 1 - agent.team ? 3.0 : 2.4;
+      score += Math.hypot(dx, dz) * 0.04 + Math.random() * 0.55;
+      // 同じ一点に居座らず、スキャンごとに周囲へ照準を散らす
+      if (this.paintAim) score += Math.min(4, v.distanceTo(this.paintAim)) * 0.16;
+      if (score > bestScore) {
+        bestScore = score;
+        best = v.clone();
       }
     }
     return best;

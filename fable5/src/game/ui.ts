@@ -12,6 +12,7 @@ export class UI {
   private howtoFrom: 'title' | 'pause' = 'title';
   private vigFlash = 0;
   private vigBase = 0;
+  private colorFlash = false;
   private centerTimer = 0;
 
   private hud = $('hud');
@@ -76,7 +77,7 @@ export class UI {
     this.hud.classList.toggle('hidden', screen !== 'hud');
   }
 
-  showHudOver(screen: 'pause') {
+  showHudOver() {
     // ポーズはHUDの上に重ねる
     this.pause.classList.remove('hidden');
   }
@@ -169,8 +170,22 @@ export class UI {
     this.respawnEl.classList.add('hidden');
   }
 
-  damageFlash(hp: number) {
+  damageFlash() {
+    if (this.colorFlash) return;
+    this.vignette.style.removeProperty('background-color');
+    this.vignette.style.removeProperty('box-shadow');
+    this.vignette.style.removeProperty('mix-blend-mode');
     this.vigFlash = 0.9;
+  }
+
+  /** 勝敗確定の瞬間だけHUD全面をチームカラーで発光させる */
+  victoryFlash(color: string) {
+    this.vigBase = 0;
+    this.vigFlash = 1;
+    this.colorFlash = true;
+    this.vignette.style.backgroundColor = color;
+    this.vignette.style.boxShadow = 'inset 0 0 180px 45px rgba(255,255,255,0.82)';
+    this.vignette.style.mixBlendMode = 'screen';
   }
 
   /** 毎フレーム: ビネットのフェード */
@@ -178,6 +193,12 @@ export class UI {
     this.vigFlash = Math.max(0, this.vigFlash - dt * 3.2);
     const v = Math.max(this.vigBase + Math.sin(performance.now() * 0.006) * 0.06 * (this.vigBase > 0 ? 1 : 0), this.vigFlash);
     this.vignette.style.opacity = String(clamp(v, 0, 1));
+    if (this.colorFlash && this.vigFlash <= 0) {
+      this.colorFlash = false;
+      this.vignette.style.removeProperty('background-color');
+      this.vignette.style.removeProperty('box-shadow');
+      this.vignette.style.removeProperty('mix-blend-mode');
+    }
   }
 
   clearKillFeed() {

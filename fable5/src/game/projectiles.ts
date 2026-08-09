@@ -5,7 +5,8 @@ import type { Game } from './game';
 
 const MAX = 96;
 const SPEED = 27;
-const GRAVITY = 13;
+// 射程が伸びすぎないよう、キャラクターの重力より強い弾道重力にする。
+const GRAVITY = 20;
 
 interface Shot {
   active: boolean;

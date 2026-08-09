@@ -103,5 +103,6 @@ export class GameCamera {
     const to = new THREE.Vector3().copy(this.cam.position).addScaledVector(dir, 70);
     const hit = world.segmentHit(from, to, 0.02);
     this.aimPoint.copy(hit ? hit.point : to);
+    this.cam.userData.dofFocusDistance = this.cam.position.distanceTo(this.aimPoint);
   }
 }

@@ -12,9 +12,10 @@
 
   <!-- ===== HUD ===== -->
   <div id="hud" class="screen hidden">
-    <div id="topbar">
+    <div id="topbar" aria-label="バトル状況">
       <div id="coverPctL" class="cover-pct">0.0%</div>
       <div id="timerWrap">
+        <div class="hud-eyebrow">TURF STATUS</div>
         <div id="timer">3:00</div>
         <div id="coverBar">
           <div id="coverL"></div>
@@ -38,16 +39,27 @@
       <svg viewBox="0 0 100 130">
         <defs>
           <clipPath id="tankClip"><path d="M50 6 C66 30 88 52 88 82 a38 38 0 1 1 -76 0 C12 52 34 30 50 6 Z"/></clipPath>
+          <linearGradient id="inkLiquidGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ffd34e"/>
+            <stop offset="0.38" stop-color="#ffac27"/>
+            <stop offset="1" stop-color="#ff6818"/>
+          </linearGradient>
+          <linearGradient id="inkLowGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffcf5a"/>
+            <stop offset="0.28" stop-color="#ff6b58"/>
+            <stop offset="1" stop-color="#c81f5d"/>
+          </linearGradient>
         </defs>
         <path class="tank-outline" d="M50 6 C66 30 88 52 88 82 a38 38 0 1 1 -76 0 C12 52 34 30 50 6 Z"/>
         <rect id="inkFill" x="0" y="0" width="100" height="130" clip-path="url(#tankClip)"/>
       </svg>
+      <div class="ink-label">INK</div>
       <div id="inkPct">100</div>
     </div>
 
-    <div id="killfeed"></div>
-    <div id="centerMsg" class="hidden"></div>
-    <div id="killPop" class="hidden">たおした！</div>
+    <div id="killfeed" aria-live="polite"></div>
+    <div id="centerMsg" class="hidden" aria-live="assertive"></div>
+    <div id="killPop" class="hidden" aria-live="polite"><span>たおした！</span></div>
     <div id="respawnOverlay" class="hidden">
       <div class="respawn-title">やられた！</div>
       <div id="respawnCount">3</div>
@@ -117,6 +129,7 @@
   <div id="result" class="screen hidden">
     <div class="splat s1"></div><div class="splat s3"></div>
     <div class="panel panel-wide">
+      <div class="result-kicker">BATTLE RESULT</div>
       <div id="resultStamp">WIN!</div>
       <div id="resultBars">
         <div class="rbar-row"><span class="rbar-name ink0">イカチーム</span><div class="rbar"><div id="rbarL"></div></div><span id="rpctL" class="rbar-pct">0%</span></div>

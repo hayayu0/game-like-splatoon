@@ -88,6 +88,54 @@ interface Tentacle {
   baseY: number[];
 }
 
+/** 球ではなく、根元から毛先へ細くなる扁平なアニメ髪束を作る。 */
+function makeHairLockGeometry(radius: number, length: number, flat: number, fat: number): THREE.BufferGeometry {
+  const sides = 8;
+  const width = radius * 1.28 * fat;
+  const height = radius * 0.9 * flat;
+  const rings = [
+    { z: 0, scale: 1.0 },
+    { z: length * 0.72, scale: 0.82 },
+    { z: length, scale: 0.34 },
+  ];
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (const ring of rings) {
+    for (let i = 0; i < sides; i++) {
+      const a = (i / sides) * Math.PI * 2;
+      positions.push(
+        Math.cos(a) * width * ring.scale,
+        Math.sin(a) * height * ring.scale,
+        ring.z,
+      );
+    }
+  }
+  for (let r = 0; r < rings.length - 1; r++) {
+    const a0 = r * sides;
+    const a1 = (r + 1) * sides;
+    for (let i = 0; i < sides; i++) {
+      const n = (i + 1) % sides;
+      indices.push(a0 + i, a1 + i, a0 + n, a0 + n, a1 + i, a1 + n);
+    }
+  }
+  // 根元は頭側へ埋め、毛先は尖らせる。
+  const base = positions.length / 3;
+  positions.push(0, 0, 0);
+  const tip = positions.length / 3;
+  positions.push(0, 0, length);
+  for (let i = 0; i < sides; i++) {
+    const n = (i + 1) % sides;
+    indices.push(base, n, i);
+    const end = (rings.length - 1) * sides;
+    indices.push(tip, end + i, end + n);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setIndex(indices);
+  g.computeVertexNormals();
+  return g;
+}
+
 /** 数珠つなぎの関節でできた触手。関節を順に少しずつ回すと波打つ */
 function makeTentacle(
   parent: THREE.Object3D,
@@ -121,7 +169,7 @@ function makeTentacle(
   for (let i = 0; i < o.segs; i++) {
     const segLen = o.len * Math.pow(0.9, i);
     const p = new Part();
-    p.add(mat, at(sph(r, 1, o.flat ?? 1, o.fat ?? 1.2, 10), 0, 0, segLen * 0.5));
+    p.add(mat, makeHairLockGeometry(r, segLen, o.flat ?? 1, o.fat ?? 1.2));
     const seg = p.build();
     cur.add(seg);
     const next = new THREE.Group();
@@ -178,16 +226,19 @@ export function buildCharacter(team: number, kind: 'squid' | 'octo'): CharacterR
     return m;
   };
 
-  const skinM = M(isSquid ? '#ffdcb0' : '#efbf97', 0.58);
-  const inkM = M(ink, 0.34, { emissive: ink, ei: 0.1 });
-  const inkHiM = M(inkHi, 0.42);
-  const darkM = M(isSquid ? '#1b1a28' : '#15121f', 0.5);
-  const whiteM = M('#fbfcfe', 0.45);
-  const topM = M(isSquid ? '#f2f5f8' : '#3b2d55', isSquid ? 0.7 : 0.62);
-  const pantsM = M(isSquid ? '#2b3050' : '#241c38', 0.72);
-  const eyeM = M('#241f3d', 0.28);
-  const gunM = M('#e9edf2', 0.4, { metal: 0.15 });
-  const glassM = M('#cfe6ff', 0.1, { opacity: 0.22 });
+  const skinM = M(isSquid ? '#ffdcb0' : '#efbf97', 0.54);
+  const skinShadeM = M(isSquid ? '#f2c797' : '#dca77f', 0.68);
+  const inkM = M(ink, 0.3, { emissive: ink, ei: 0.1 });
+  const inkHiM = M(inkHi, 0.38);
+  const darkM = M(isSquid ? '#1b1a28' : '#15121f', 0.56);
+  const rubberM = M(isSquid ? '#242334' : '#20182d', 0.88);
+  const whiteM = M('#fbfcfe', 0.3);
+  const topM = M(isSquid ? '#f2f5f8' : '#3b2d55', isSquid ? 0.78 : 0.72);
+  const pantsM = M(isSquid ? '#2b3050' : '#241c38', 0.84);
+  const eyeM = M('#241f3d', 0.16);
+  const gunM = M('#e9edf2', 0.32, { metal: 0.38 });
+  const metalM = M('#7d8798', 0.22, { metal: 0.72 });
+  const glassM = M('#cfe6ff', 0.08, { opacity: 0.22 });
 
   const root = new THREE.Group();
   const human = new THREE.Group();
@@ -209,6 +260,8 @@ export function buildCharacter(team: number, kind: 'squid' | 'octo'): CharacterR
     const shinP = new Part();
     shinP.add(skinM, at(sph(0.068, 1, 0.9, 1, 10), 0, 0, 0));
     shinP.add(skinM, at(cyl(0.064, 0.05, SHIN * 0.7), 0, -SHIN * 0.38, 0));
+    // 足首のチームカラーバンドはスニーカーのソールと同じbucketにまとめる
+    shinP.add(inkHiM, at(cyl(0.058, 0.058, 0.035, 10), 0, -SHIN * 0.72, 0));
     // スニーカー: 本体 + つま先 + ソール
     shinP.add(whiteM, at(box(0.128, 0.088, 0.21), 0, -SHIN + 0.05, 0.03));
     shinP.add(whiteM, at(sph(0.07, 1, 0.82, 1.15, 10), 0, -SHIN + 0.078, -0.028));
@@ -277,7 +330,8 @@ export function buildCharacter(team: number, kind: 'squid' | 'octo'): CharacterR
     const foreP = new Part();
     foreP.add(skinM, at(sph(0.052, 1, 0.9, 1, 10), 0, 0, 0));
     foreP.add(skinM, at(cyl(0.05, 0.042, FOREARM * 0.8), 0, -FOREARM * 0.4, 0));
-    foreP.add(darkM, at(sph(0.058, 1, 0.85, 1, 10), 0, -FOREARM * 0.88, 0));
+    foreP.add(inkHiM, at(cyl(0.055, 0.055, 0.034, 10), 0, -FOREARM * 0.78, 0));
+    foreP.add(rubberM, at(sph(0.058, 1, 0.85, 1, 10), 0, -FOREARM * 0.88, 0));
     foreP.add(skinM, at(sph(0.06, 1, 1.1, 0.9, 10), 0, -FOREARM - 0.025, 0.012));
     elbow.add(foreP.build());
     torso.add(sh);
@@ -294,9 +348,10 @@ export function buildCharacter(team: number, kind: 'squid' | 'octo'): CharacterR
   wp.add(gunM, at(box(isSquid ? 0.075 : 0.098, 0.088, 0.26), 0, 0.02, 0.11));
   wp.add(gunM, at(sph(0.053, 1, 1, 1.1, 10), 0, 0.045, -0.02));
   wp.add(inkM, at(rotX(cyl(0.034, 0.034, 0.22, 8), Math.PI / 2), 0, -0.04, 0.14));
-  wp.add(darkM, at(rotX(cone(isSquid ? 0.043 : 0.054, 0.095, 10), Math.PI / 2), 0, 0.02, 0.27));
-  wp.add(darkM, at(box(0.034, 0.1, 0.05), 0, -0.075, 0.0));
-  wp.add(darkM, at(box(0.026, 0.045, 0.035), 0, -0.03, 0.05));
+  wp.add(metalM, at(rotX(cone(isSquid ? 0.043 : 0.054, 0.095, 10), Math.PI / 2), 0, 0.02, 0.27));
+  wp.add(metalM, at(new THREE.TorusGeometry(0.045, 0.009, 6, 10), 0, 0.02, 0.205));
+  wp.add(rubberM, at(box(0.034, 0.1, 0.05), 0, -0.075, 0.0));
+  wp.add(rubberM, at(box(0.026, 0.045, 0.035), 0, -0.03, 0.05));
   weaponRoot.add(wp.build());
   const wTank = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), glassM);
   wTank.position.set(0, 0.095, 0.02);
@@ -331,6 +386,10 @@ export function buildCharacter(team: number, kind: 'squid' | 'octo'): CharacterR
   headP.add(skinM, sph(HEAD_R, 1, 1.02, 0.98, 16));
   // あご下のシャープさを出す小さめの面取り
   headP.add(skinM, at(sph(HEAD_R * 0.82, 1, 0.8, 1, 12), 0, -0.06, 0.012));
+  // 頬のわずかな色差で、単色の肌でも面の丸みを拾えるようにする
+  for (const sx of [-1, 1]) {
+    headP.add(skinShadeM, at(sph(0.031, 1.35, 0.55, 0.16, 8), 0.112 * sx, -0.062, HEAD_R * 0.94));
+  }
 
   if (isSquid) {
     // 大きな目 + 上まぶたの濃いライン
@@ -354,6 +413,7 @@ export function buildCharacter(team: number, kind: 'squid' | 'octo'): CharacterR
         M('#120a1c', 0.18, { emissive: inkHi, ei: 2.4 }),
         at(sph(0.055, 1.0, 0.88, 0.34, 12), ex, -0.005, HEAD_R * 0.9)
       );
+      headP.add(whiteM, at(sph(0.012, 1, 0.72, 0.36, 8), ex + 0.017 * sx, 0.019, HEAD_R * 0.94));
     }
   }
   // 口（小さく、わずかに笑った形）
@@ -509,11 +569,16 @@ export function buildCharacter(team: number, kind: 'squid' | 'octo'): CharacterR
     swimForm.visible = !human.visible;
 
     if (human.visible) {
-      // 脚: 股関節の振り + ひざは後ろにだけ曲がる
-      legL.hip.rotation.x = lerp(s * 0.85 * run, -0.62 + Math.sin(a.t * 3) * 0.05, airPose);
-      legR.hip.rotation.x = lerp(-s * 0.85 * run, 0.42, airPose);
-      legL.knee.rotation.x = lerp(Math.max(0, -s) * 1.1 * run, 0.95, airPose);
-      legR.knee.rotation.x = lerp(Math.max(0, s) * 1.1 * run, 0.35, airPose);
+      // 脚: 走行度でストライドを広げ、蹴り上げから接地まで非対称に曲げる
+      const stride = run * (0.5 + 0.55 * run * run);
+      const kickL = Math.max(0, s - c * 0.35);
+      const kickR = Math.max(0, -s + c * 0.35);
+      const kneeLRun = run * (0.12 + kickL * kickL * 0.78 + Math.max(0, -c) * 0.3);
+      const kneeRRun = run * (0.12 + kickR * kickR * 0.78 + Math.max(0, c) * 0.3);
+      legL.hip.rotation.x = lerp(s * stride, -0.62 + Math.sin(a.t * 3) * 0.05, airPose);
+      legR.hip.rotation.x = lerp(-s * stride, 0.42, airPose);
+      legL.knee.rotation.x = lerp(kneeLRun, 0.95, airPose);
+      legR.knee.rotation.x = lerp(kneeRRun, 0.35, airPose);
 
       // 腕: 武器を両手で構える
       // 胸の高さで前方に構える。3つの回転の和が0のとき銃口が真正面を向く
